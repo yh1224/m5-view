@@ -7,9 +7,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-from PIL import ImageColor
+from PIL import Image, ImageColor
 
-from m5view_sender import imageprep, protocol
+from m5view_sender import imageprep
 from m5view_sender.transfer import M5ViewClient, TransferError
 
 
@@ -34,15 +34,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 async def main_async(args: argparse.Namespace) -> None:
-    png = imageprep.prepare(args.image, args.fit, args.bg)
-    if len(png) > protocol.MAX_LENGTH:
-        raise TransferError(f"PNG is too large: {len(png)} > {protocol.MAX_LENGTH} bytes")
-    print(f"Prepared PNG: {len(png)} bytes", file=sys.stderr)
+    # Check that the image opens before searching for the device
+    with Image.open(args.image):
+        pass
 
     client = M5ViewClient(args.name, args.address)
     await client.connect()
     try:
-        print(f"Connected to {client.device_name}", file=sys.stderr)
+        info = client.info
+        print(f"Connected to {client.device_name} ({info.width}x{info.height})", file=sys.stderr)
+        png = imageprep.prepare(args.image, args.fit, args.bg, (info.width, info.height))
+        if len(png) > info.max_length:
+            raise TransferError(f"PNG is too large: {len(png)} > {info.max_length} bytes")
+        print(f"Prepared PNG: {len(png)} bytes", file=sys.stderr)
         await client.send(png, print_progress)
         print("\nDone", file=sys.stderr)
     finally:

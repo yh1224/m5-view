@@ -67,3 +67,29 @@ def test_parse_notification(payload, expected):
 def test_parse_notification_rejects_invalid(payload):
     with pytest.raises(ValueError):
         protocol.parse_notification(payload)
+
+
+def test_build_header_with_max_length():
+    protocol.build_header(bytes(protocol.MAX_LENGTH + 1), max_length=protocol.MAX_LENGTH + 1)
+    with pytest.raises(ValueError):
+        protocol.build_header(bytes(11), max_length=10)
+
+
+def test_parse_info():
+    info = protocol.parse_info(b"width=1280 height=720 max_length=4194304")
+    assert info == protocol.DeviceInfo(1280, 720, 4194304)
+
+
+def test_parse_info_ignores_unknown_items():
+    info = protocol.parse_info(b"width=320 height=240 max_length=524288 extra=1")
+    assert info == protocol.DEFAULT_INFO
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [b"", b"width=320 height=240", b"width=320 height=240 max_length", b"width=a height=240 max_length=1",
+     b"width=0 height=240 max_length=1"],
+)
+def test_parse_info_rejects_invalid(payload):
+    with pytest.raises(ValueError):
+        protocol.parse_info(payload)

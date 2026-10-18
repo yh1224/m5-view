@@ -41,6 +41,18 @@ async def find_device(name_prefix: str, address: str | None) -> BLEDevice:
     return device
 
 
+async def read_info(client: BleakClient) -> protocol.DeviceInfo:
+    """Read the Info characteristic, or return DEFAULT_INFO if the device has none."""
+    characteristic = client.services.get_characteristic(protocol.INFO_UUID)
+    if characteristic is None:
+        return protocol.DEFAULT_INFO
+    payload = await client.read_gatt_char(characteristic)
+    try:
+        return protocol.parse_info(bytes(payload))
+    except ValueError as e:
+        raise TransferError(f"invalid device info: {e}") from e
+
+
 class M5ViewClient:
     """Client that keeps the connection open and sends any number of images."""
 
@@ -48,6 +60,7 @@ class M5ViewClient:
         self._name_prefix = name_prefix
         self._address = address
         self._client: BleakClient | None = None
+        self._info = protocol.DEFAULT_INFO
         self._notifications: asyncio.Queue[protocol.Notification] = asyncio.Queue()
 
     @property
@@ -58,14 +71,20 @@ class M5ViewClient:
     def device_name(self) -> str | None:
         return self._client.name if self._client else None
 
+    @property
+    def info(self) -> protocol.DeviceInfo:
+        """Screen size and size limit of the connected device."""
+        return self._info
+
     async def connect(self) -> None:
-        """Find the device, connect and subscribe to notifications."""
+        """Find the device, connect, read the device info and subscribe to notifications."""
         await self.disconnect()
         try:
             device = await find_device(self._name_prefix, self._address)
             client = BleakClient(device)
             await client.connect()
             try:
+                info = await read_info(client)
                 await client.start_notify(protocol.NUS_TX_UUID, self._on_notify)
             except BaseException:
                 await client.disconnect()
@@ -73,6 +92,7 @@ class M5ViewClient:
         except BleakError as e:
             raise TransferError(str(e)) from e
         self._client = client
+        self._info = info
 
     async def disconnect(self) -> None:
         client, self._client = self._client, None
@@ -104,7 +124,11 @@ class M5ViewClient:
         while not self._notifications.empty():
             self._notifications.get_nowait()
 
-        await client.write_gatt_char(rx, protocol.build_header(png), response=True)
+        try:
+            header = protocol.build_header(png, self._info.max_length)
+        except ValueError as e:
+            raise TransferError(str(e)) from e
+        await client.write_gatt_char(rx, header, response=True)
         self._raise_if_error()
 
         for start, end in protocol.iter_windows(len(png)):

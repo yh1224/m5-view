@@ -1,13 +1,13 @@
 # m5-view
 
-Firmware and a sender tool that send images from macOS to an M5Stack CoreS3 over Bluetooth (BLE) and show them on its screen.
+Firmware and a sender tool that send images from macOS to an M5Stack CoreS3 or Tab5 over Bluetooth (BLE) and show them on its screen.
 
-- **Firmware**: receives PNG images over the BLE Nordic UART Service (NUS) and shows them on the 320×240 screen
-- **Sender**: a Python CLI that converts any image to a 320×240 PNG and sends it from macOS over BLE
+- **Firmware**: receives PNG images over the BLE Nordic UART Service (NUS) and shows them on the screen (CoreS3: 320×240, Tab5: 1280×720)
+- **Sender**: a Python CLI that converts any image to a PNG of the device's screen size and sends it from macOS over BLE
 
 ## Requirements
 
-- M5Stack CoreS3
+- M5Stack CoreS3 or Tab5
 - macOS with Bluetooth
 - [PlatformIO Core](https://platformio.org/install/cli)
 - [uv](https://docs.astral.sh/uv/)
@@ -16,11 +16,17 @@ Firmware and a sender tool that send images from macOS to an M5Stack CoreS3 over
 
 ### Firmware
 
-Connect the CoreS3 over USB, then build and flash.
+Connect the device over USB, then build and flash.
 
 ```sh
+# CoreS3
 pio run -t upload
+
+# Tab5
+pio run -e m5stack-tab5 -t upload
 ```
+
+On the Tab5, BLE runs on the ESP32-C6 co-processor through ESP-Hosted. The firmware on the ESP32-C6 must support Bluetooth over ESP-Hosted.
 
 On startup, the idle screen shows the device name (`M5-View-XXXX`) and the connection status.
 
@@ -77,7 +83,9 @@ uv run send.py samples/portrait.jpg --fit cover
 
 - The device shows the last image sent, and a restart clears it
 - Connecting requires no pairing, so anyone nearby can connect and send images
-- The converted PNG must be 512 KiB or smaller
+- The sender reads the screen size from the device and converts the image to it
+- The converted PNG must be 512 KiB or smaller on the CoreS3 and 4 MiB or smaller on the Tab5
+- A PNG of another size is scaled on the device to fit the screen (e.g. `claude-usage` renders 320×240, shown enlarged on the Tab5)
 
 ## Tests
 

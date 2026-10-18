@@ -25,3 +25,9 @@ def test_encode_png():
     png = imageprep.encode_png(image)
     assert png.startswith(b"\x89PNG")
     assert Image.open(io.BytesIO(png)).size == (imageprep.WIDTH, imageprep.HEIGHT)
+
+
+@pytest.mark.parametrize("fit", imageprep.FIT_MODES)
+def test_fit_image_custom_size(fit):
+    image = Image.new("RGB", (640, 480), "red")
+    assert imageprep.fit_image(image, fit, size=(1280, 720)).size == (1280, 720)

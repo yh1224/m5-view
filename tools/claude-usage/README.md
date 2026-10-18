@@ -6,7 +6,7 @@ It fetches usage with the Claude Code login on this Mac.
 
 ## Requirements
 
-- M5Stack CoreS3 flashed with the m5-view firmware
+- M5Stack CoreS3 or Tab5 flashed with the m5-view firmware (the 320×240 image is enlarged to fit the Tab5 screen)
 - macOS with Bluetooth
 - [uv](https://docs.astral.sh/uv/)
 - Claude Code, logged in on this Mac
