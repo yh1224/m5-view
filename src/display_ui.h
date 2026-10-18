@@ -7,14 +7,22 @@
 // Call from loop().
 namespace display_ui
 {
-// Returns false if the canvases cannot be allocated
-bool begin(const char *deviceName);
+// Set the screen to landscape. Returns false if the canvases cannot be
+// allocated
+bool begin();
+
+// Screen size in landscape
+int width();
+int height();
+
+// Show the idle screen with the device name
+void setDeviceName(const char *deviceName);
 
 // Update the connection status on the idle screen
 void setConnected(bool connected);
 
-// Decode and show a PNG. On decode failure, keep the previous image and
-// return false
+// Decode and show a PNG, scaled to fit the screen if its size differs. On
+// decode failure, keep the previous image and return false
 bool showImage(const uint8_t *png, size_t length);
 
 void showProgress(uint32_t received, uint32_t total);

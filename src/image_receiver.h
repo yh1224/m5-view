@@ -6,8 +6,15 @@
 // Receiver state machine of the image transfer protocol
 // (docs/protocol.md §4). Call onReceive / onDisconnect from the NimBLE host
 // task and everything else from loop().
+#ifndef M5VIEW_MAX_LENGTH
+#define M5VIEW_MAX_LENGTH (512 * 1024)
+#endif
+
 namespace image_receiver
 {
+// Upper limit of the body length. Set per board with M5VIEW_MAX_LENGTH
+constexpr uint32_t kMaxLength = M5VIEW_MAX_LENGTH;
+
 enum class State
 {
     Idle,

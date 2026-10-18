@@ -13,7 +13,6 @@ namespace
 {
 constexpr uint8_t kMagic[4] = {'I', 'M', 'G', '0'};
 constexpr size_t kHeaderSize = 12;
-constexpr uint32_t kMaxLength = 512 * 1024;
 constexpr uint32_t kAckWindow = 4096;
 constexpr uint32_t kTimeoutMs = 5000;
 

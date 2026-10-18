@@ -1,5 +1,6 @@
 #include "display_ui.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <M5Unified.h>
@@ -8,8 +9,8 @@ namespace display_ui
 {
 namespace
 {
-constexpr int kWidth = 320;
-constexpr int kHeight = 240;
+// UI sizes below are for 320 px wide and scaled by gScale
+constexpr int kBaseWidth = 320;
 constexpr uint8_t kBrightness = 128;
 constexpr int kProgressHeight = 6;
 constexpr int kToastHeight = 32;
@@ -20,6 +21,9 @@ M5Canvas gCanvasB(&M5.Display);
 M5Canvas *gCurrent = &gCanvasA; // Shown image (idle screen until one arrives)
 M5Canvas *gStaging = &gCanvasB; // Decode target
 
+int gWidth = 0;
+int gHeight = 0;
+int gScale = 1;
 const char *gDeviceName = "";
 bool gConnected = false;
 bool gHasImage = false;
@@ -32,26 +36,40 @@ bool createCanvas(M5Canvas &canvas)
 {
     canvas.setColorDepth(16);
     canvas.setPsram(true);
-    return canvas.createSprite(kWidth, kHeight) != nullptr;
+    return canvas.createSprite(gWidth, gHeight) != nullptr;
+}
+
+// Use the larger fonts on large screens so scaled text stays smooth
+void setTitleFont(lgfx::LovyanGFX &gfx)
+{
+    gfx.setFont(gScale >= 2 ? &fonts::FreeSansBold24pt7b : &fonts::FreeSansBold12pt7b);
+    gfx.setTextSize(std::max(1, gScale / 2));
+}
+
+void setBodyFont(lgfx::LovyanGFX &gfx)
+{
+    gfx.setFont(gScale >= 2 ? &fonts::FreeSans18pt7b : &fonts::FreeSans9pt7b);
+    gfx.setTextSize(std::max(1, gScale / 2));
 }
 
 void renderIdleScreen()
 {
     gCurrent->fillScreen(TFT_BLACK);
     gCurrent->setTextDatum(middle_center);
-    gCurrent->setFont(&fonts::FreeSansBold12pt7b);
+    setTitleFont(*gCurrent);
     gCurrent->setTextColor(TFT_WHITE);
-    gCurrent->drawString(gDeviceName, kWidth / 2, kHeight / 2 - 16);
-    gCurrent->setFont(&fonts::FreeSans9pt7b);
+    gCurrent->drawString(gDeviceName, gWidth / 2, gHeight / 2 - 16 * gScale);
+    setBodyFont(*gCurrent);
     gCurrent->setTextColor(gConnected ? TFT_GREEN : TFT_DARKGREY);
-    gCurrent->drawString(gConnected ? "Connected" : "Advertising", kWidth / 2, kHeight / 2 + 16);
+    gCurrent->drawString(gConnected ? "Connected" : "Advertising", gWidth / 2, gHeight / 2 + 16 * gScale);
 }
 
 void drawProgressBar()
 {
-    int y = kHeight - kProgressHeight;
-    M5.Display.fillRect(0, y, kWidth, kProgressHeight, TFT_DARKGREY);
-    M5.Display.fillRect(0, y, gProgressWidth, kProgressHeight, TFT_CYAN);
+    int height = kProgressHeight * gScale;
+    int y = gHeight - height;
+    M5.Display.fillRect(0, y, gWidth, height, TFT_DARKGREY);
+    M5.Display.fillRect(0, y, gProgressWidth, height, TFT_CYAN);
 }
 
 // Push the canvas to the screen and redraw the active overlays
@@ -65,23 +83,39 @@ void redraw()
 }
 } // namespace
 
-bool begin(const char *deviceName)
+bool begin()
 {
-    gDeviceName = deviceName;
     if (M5.Display.width() < M5.Display.height())
     {
         M5.Display.setRotation(M5.Display.getRotation() ^ 1);
     }
+    gWidth = M5.Display.width();
+    gHeight = M5.Display.height();
+    gScale = std::max(1, gWidth / kBaseWidth);
     M5.Display.setBrightness(kBrightness);
     M5.Display.fillScreen(TFT_BLACK);
 
-    if (!createCanvas(gCanvasA) || !createCanvas(gCanvasB))
+    return createCanvas(gCanvasA) && createCanvas(gCanvasB);
+}
+
+int width()
+{
+    return gWidth;
+}
+
+int height()
+{
+    return gHeight;
+}
+
+void setDeviceName(const char *deviceName)
+{
+    gDeviceName = deviceName;
+    if (!gHasImage)
     {
-        return false;
+        renderIdleScreen();
+        redraw();
     }
-    renderIdleScreen();
-    redraw();
-    return true;
 }
 
 void setConnected(bool connected)
@@ -97,7 +131,9 @@ void setConnected(bool connected)
 bool showImage(const uint8_t *png, size_t length)
 {
     gStaging->fillScreen(TFT_BLACK);
-    if (!gStaging->drawPng(png, length, 0, 0))
+    // Zoom 0 fits the image to the canvas keeping the aspect ratio. An image
+    // of the screen size is drawn at 1:1
+    if (!gStaging->drawPng(png, length, 0, 0, 0, 0, 0, 0, 0.0f, 0.0f, middle_center))
     {
         return false;
     }
@@ -110,7 +146,7 @@ bool showImage(const uint8_t *png, size_t length)
 
 void showProgress(uint32_t received, uint32_t total)
 {
-    int width = total > 0 ? static_cast<int>(static_cast<uint64_t>(received) * kWidth / total) : 0;
+    int width = total > 0 ? static_cast<int>(static_cast<uint64_t>(received) * gWidth / total) : 0;
     if (gProgressVisible && width == gProgressWidth)
     {
         return;
@@ -133,12 +169,13 @@ void hideProgress()
 
 void showToast(const char *message)
 {
-    int y = kHeight - kToastHeight;
-    M5.Display.fillRect(0, y, kWidth, kToastHeight, TFT_RED);
+    int height = kToastHeight * gScale;
+    int y = gHeight - height;
+    M5.Display.fillRect(0, y, gWidth, height, TFT_RED);
     M5.Display.setTextDatum(middle_center);
-    M5.Display.setFont(&fonts::FreeSans9pt7b);
+    setBodyFont(M5.Display);
     M5.Display.setTextColor(TFT_WHITE);
-    M5.Display.drawString(message, kWidth / 2, y + kToastHeight / 2);
+    M5.Display.drawString(message, gWidth / 2, y + height / 2);
     gToastVisible = true;
     gToastStartMs = millis();
 }

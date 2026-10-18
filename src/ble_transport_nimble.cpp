@@ -1,5 +1,9 @@
 #include "ble_transport.h"
 
+#include <sdkconfig.h>
+
+#if !defined(CONFIG_IDF_TARGET_ESP32P4)
+
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -14,6 +18,7 @@ namespace
 constexpr const char *kServiceUuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
 constexpr const char *kRxUuid = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
 constexpr const char *kTxUuid = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
+constexpr const char *kInfoUuid = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E";
 constexpr uint16_t kPreferredMtu = 517;
 
 char gDeviceName[32];
@@ -55,7 +60,7 @@ ServerCallbacks gServerCallbacks;
 RxCallbacks gRxCallbacks;
 } // namespace
 
-void begin(ReceiveCallback onReceive, DisconnectCallback onDisconnect)
+void begin(ReceiveCallback onReceive, DisconnectCallback onDisconnect, const char *info)
 {
     gOnReceive = onReceive;
     gOnDisconnect = onDisconnect;
@@ -76,6 +81,7 @@ void begin(ReceiveCallback onReceive, DisconnectCallback onDisconnect)
         service->createCharacteristic(kRxUuid, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
     rx->setCallbacks(&gRxCallbacks);
     gTx = service->createCharacteristic(kTxUuid, NIMBLE_PROPERTY::NOTIFY);
+    service->createCharacteristic(kInfoUuid, NIMBLE_PROPERTY::READ)->setValue(info);
     server->start();
 
     // A 128-bit UUID and the name do not fit in 31 bytes, so the name goes in
@@ -118,3 +124,5 @@ void notify(const char *message)
     gTx->notify(reinterpret_cast<const uint8_t *>(line), static_cast<size_t>(length));
 }
 } // namespace ble_transport
+
+#endif // !CONFIG_IDF_TARGET_ESP32P4

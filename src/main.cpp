@@ -39,13 +39,18 @@ void setup()
     M5.begin(config);
     Serial.begin(115200);
 
-    image_receiver::begin(ble_transport::notify);
-    ble_transport::begin(image_receiver::onReceive, image_receiver::onDisconnect);
-    if (!display_ui::begin(ble_transport::deviceName()))
+    if (!display_ui::begin())
     {
         Serial.println("failed to allocate canvas");
     }
-    Serial.printf("advertising as %s\n", ble_transport::deviceName());
+
+    char info[64];
+    snprintf(info, sizeof(info), "width=%d height=%d max_length=%lu", display_ui::width(), display_ui::height(),
+             static_cast<unsigned long>(image_receiver::kMaxLength));
+    image_receiver::begin(ble_transport::notify);
+    ble_transport::begin(image_receiver::onReceive, image_receiver::onDisconnect, info);
+    display_ui::setDeviceName(ble_transport::deviceName());
+    Serial.printf("advertising as %s (%s)\n", ble_transport::deviceName(), info);
 }
 
 void loop()
