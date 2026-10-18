@@ -1,0 +1,25 @@
+[project]
+name = "m5-view-sender"
+version = "0.1.0"
+description = "Send images to m5-view over BLE"
+requires-python = ">=3.10"
+dependencies = [
+    "bleak>=0.22",
+    "Pillow>=10.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "m5view_sender"
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
