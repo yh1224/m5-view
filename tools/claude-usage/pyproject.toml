@@ -1,0 +1,24 @@
+[project]
+name = "m5-view-claude-usage"
+version = "0.1.0"
+description = "Show Claude usage on m5-view"
+requires-python = ">=3.10"
+dependencies = [
+    "m5-view-sender",
+    "Pillow>=10.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+m5-view-sender = { path = "../sender", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
