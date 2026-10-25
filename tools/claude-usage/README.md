@@ -47,6 +47,7 @@ uv run claude_usage.py --once --save usage.png
 ### Screen
 
 - Normally shows the usage of the 5-hour and 7-day windows as bars. The vertical line in each bar marks how much of the window has elapsed
+- The bar color follows the pace, usage over the elapsed share: green below 0.75, yellow up to 1.0, orange below 1.25, red from there or at 100%. The pace is taken against a marker of at least 20%, so a fresh window does not turn red at the first message. When the reset time is unknown, the color follows usage alone (yellow from 50%, orange from 75%, red from 90%)
 - When either window reaches its limit, the screen switches to a countdown to the reset
 - While fetching fails, the last values are shown in gray and the status line shows the error
 

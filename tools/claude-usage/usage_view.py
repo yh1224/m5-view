@@ -51,6 +51,10 @@ WEEKLY_WINDOW_SEC = 7 * 86400
 
 MARKER_W = 2
 
+# Least marker position the pace is taken against, so that a fresh window does
+# not read as a runaway pace at the first message
+PACE_FLOOR_PERCENT = 20.0
+
 FONT_PATH = "/System/Library/Fonts/Helvetica.ttc"
 FONT_INDEX_REGULAR = 0
 FONT_INDEX_BOLD = 1
@@ -134,12 +138,34 @@ def countdown_target(usage: Usage) -> Countdown | None:
     return best
 
 
-def bar_color(percent: float) -> tuple[int, int, int]:
-    if percent >= 90.0:
+def bar_color(percent: float, elapsed: float | None) -> tuple[int, int, int]:
+    """Bar color by how far usage runs ahead of the time marker.
+
+    The pace is usage over the elapsed share of the window, so 1.0 reaches the
+    limit right at the reset and anything above it reaches the limit before.
+    """
+    if percent >= 100.0:
         return COLOR_CRIT
-    if percent >= 75.0:
+    # Without a reset time there is no marker to compare against, so fall back
+    # to how much of the window is consumed
+    if elapsed is None:
+        if percent >= 90.0:
+            return COLOR_CRIT
+        if percent >= 75.0:
+            return COLOR_HIGH
+        if percent >= 50.0:
+            return COLOR_WARN
+        return COLOR_OK
+    # Early in a window the marker is near zero and the slightest use would
+    # read as a runaway pace, so the pace is taken against no less than the
+    # floor
+    marker = max(elapsed * 100.0, PACE_FLOOR_PERCENT)
+    pace = percent / marker
+    if pace >= 1.25:
+        return COLOR_CRIT
+    if pace > 1.0:
         return COLOR_HIGH
-    if percent >= 50.0:
+    if pace >= 0.75:
         return COLOR_WARN
     return COLOR_OK
 
@@ -217,7 +243,8 @@ def _draw_bar(
     now: float,
 ) -> None:
     percent = window.utilization if window else 0.0
-    color = COLOR_DIM if stale or window is None else bar_color(percent)
+    elapsed = elapsed_fraction(window.resets_at, window_sec, now) if window else None
+    color = COLOR_DIM if stale or window is None else bar_color(percent, elapsed)
 
     draw.text((BAR_X, y), label, font=font(SIZE_SMALL), fill=COLOR_DIM if stale else COLOR_FG, anchor="la")
     value = f"{percent:.0f}%" if window else "--"
@@ -232,7 +259,6 @@ def _draw_bar(
     # Where the fill would be if usage kept pace with time. A fill past the
     # marker means usage is outpacing the window. The marker comes from the
     # local clock, so it stays bright even when the values are stale
-    elapsed = elapsed_fraction(window.resets_at, window_sec, now) if window else None
     if elapsed is not None:
         marker_x = BAR_X + int((BAR_W - MARKER_W) * elapsed + 0.5)
         draw.rectangle([marker_x, bar_y + 2, marker_x + MARKER_W - 1, bar_y + BAR_H - 3], fill=COLOR_FG)

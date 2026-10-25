@@ -65,6 +65,30 @@ def test_elapsed_fraction():
     assert usage_view.elapsed_fraction(T + 8 * 3600, 4 * 3600, T) == 0.0
 
 
+@pytest.mark.parametrize(
+    ("percent", "elapsed", "expected"),
+    [
+        (100, 1.0, usage_view.COLOR_CRIT),
+        # Pace against the marker
+        (37, 0.5, usage_view.COLOR_OK),
+        (40, 0.5, usage_view.COLOR_WARN),
+        (50, 0.5, usage_view.COLOR_WARN),
+        (55, 0.5, usage_view.COLOR_HIGH),
+        (63, 0.5, usage_view.COLOR_CRIT),
+        # The marker counts as no less than 20%
+        (10, 0.01, usage_view.COLOR_OK),
+        (25, 0.0, usage_view.COLOR_CRIT),
+        # Usage alone without a marker
+        (49, None, usage_view.COLOR_OK),
+        (50, None, usage_view.COLOR_WARN),
+        (75, None, usage_view.COLOR_HIGH),
+        (90, None, usage_view.COLOR_CRIT),
+    ],
+)
+def test_bar_color(percent, elapsed, expected):
+    assert usage_view.bar_color(percent, elapsed) == expected
+
+
 def pixel_at_bar(image):
     """Color near the left end of the session bar."""
     return image.getpixel((usage_view.BAR_X + 4, usage_view.BLOCK1_Y + 24 + usage_view.BAR_H // 2))
@@ -103,3 +127,4 @@ def test_render_countdown_dimmed_when_stale():
     usage = Usage(window(100, 3600), window(10, 86400))
     image = usage_view.render(ViewState(usage, True, "HTTP 500", True), NOW)
     assert ring_pixel(image) == usage_view.COLOR_DIM
+

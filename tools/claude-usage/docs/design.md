@@ -77,9 +77,10 @@ Reproduces the layout and colors of `UsageView` in m5-claude-usage with Pillow.
 
 - The screen is 320×240. The font is macOS Helvetica (`/System/Library/Fonts/Helvetica.ttc`) at sizes matching M5GFX FreeSans 9pt / 12pt / 18pt
 - Header: title and current time (`HH:MM`)
-- Bars: usage of 5h and 7d, colored by usage, with a marker for the elapsed part of the window and the time until reset
+- Bars: usage of 5h and 7d, colored by pace (usage over the elapsed share of the window), with a marker for the elapsed part of the window and the time until reset
 - Countdown: replaces the bars while either window is at its limit. It targets the limited window that resets last, and shows a remaining-time ring and numbers
 - When the values are stale (the last fetch failed), the bars and ring turn gray
+- Bar colors: green below a pace of 0.75, yellow up to 1.0, orange below 1.25, red from there or at 100%. The pace is taken against an elapsed share of at least 20%. Without a reset time, by usage alone: yellow from 50%, orange from 75%, red from 90%
 - Status line: `Loading...` (before the first fetch), `Updated HH:MM`, or an error
 
 ## 6. Scheduling (claude_usage)
@@ -132,6 +133,6 @@ Logs go to standard error.
 | Target | Method |
 | --- | --- |
 | `usage_api` | Unit tests with `pytest` (credential parsing, expiry check, response parsing) |
-| `usage_view` | Unit tests with `pytest` (countdown target selection, time formats, elapsed fraction, view switching, dimming) |
+| `usage_view` | Unit tests with `pytest` (countdown target selection, time formats, elapsed fraction, bar colors, view switching, dimming) |
 | `claude_usage` | Unit tests with `pytest` (retry interval, wake-up time) |
 | Keychain, API, BLE | Manual tests on real hardware |
