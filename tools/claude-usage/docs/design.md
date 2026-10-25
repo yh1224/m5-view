@@ -22,8 +22,8 @@ Images are transferred according to the [m5-view protocol](../../../docs/protoco
 | --- | --- |
 | Data | Usage and reset time of the 5-hour (`five_hour`) and 7-day (`seven_day`) windows |
 | Authentication | Reads the access token that Claude Code on the Mac stores in the keychain. Claude Code takes care of refreshing it |
-| Screen | Same content as m5-claude-usage: a clock in the header, two bars with elapsed markers, a countdown once a limit is reached, dimming when fetching fails, and a status line |
-| Fetch interval | 60 seconds (configurable with `--interval`). On failure, doubles from 30 seconds up to 10 minutes |
+| Screen | Same content as m5-claude-usage: the last update time in the header, two bars with elapsed markers, a countdown once a limit is reached, dimming when fetching fails, and a status line |
+| Fetch interval | 60 seconds (configurable with `--interval`), timed to multiples of the interval in UTC. On failure, doubles from 30 seconds up to 10 minutes |
 | Render interval | At second 0 of every minute. Sends only when the image has changed |
 | BLE | Keeps the connection open and reconnects every 30 seconds once it drops |
 
@@ -76,12 +76,12 @@ On failure, the last values stay on screen, dimmed.
 Reproduces the layout and colors of `UsageView` in m5-claude-usage with Pillow.
 
 - The screen is 320×240. The font is macOS Helvetica (`/System/Library/Fonts/Helvetica.ttc`) at sizes matching M5GFX FreeSans 9pt / 12pt / 18pt
-- Header: title and current time (`HH:MM`)
+- Header: title and the time of the last successful fetch (`HH:MM`). Nothing is shown before the first success
 - Bars: usage of 5h and 7d, colored by pace (usage over the elapsed share of the window), with a marker for the elapsed part of the window and the time until reset
 - Countdown: replaces the bars while either window is at its limit. It targets the limited window that resets last, and shows a remaining-time ring and numbers
 - When the values are stale (the last fetch failed), the bars and ring turn gray
 - Bar colors: green below a pace of 0.75, yellow up to 1.0, orange below 1.25, red from there or at 100%. The pace is taken against an elapsed share of at least 20%. Without a reset time, by usage alone: yellow from 50%, orange from 75%, red from 90%
-- Status line: `Loading...` (before the first fetch), `Updated HH:MM`, or an error
+- Status line: `Loading...` (before the first fetch), empty after a successful fetch, or an error
 
 ## 6. Scheduling (claude_usage)
 
@@ -107,7 +107,8 @@ flowchart TD
 ```
 
 - The wake-up time is the earliest of second 0 of the next minute, the next fetch time, and the next reconnect time while disconnected
-- The next fetch time is when the fetch started plus the fetch interval (or the retry interval on failure). A 1-second tolerance lets a fetch happen in the same wake-up even if it drifts slightly from the per-minute wake-up
+- After a successful fetch (or an expired token), the next fetch time is the next multiple of the fetch interval in UTC, so a 60-second interval fetches at second 0 of every minute. When that is less than 10 seconds away, it skips to the one after. On other failures it is when the fetch started plus the retry interval
+- A 1-second tolerance lets a fetch happen in the same wake-up even if the per-minute wake-up comes slightly early. Such a fetch is stamped with the boundary it was aimed at
 - On disconnection, the tool forgets the last PNG sent. A restart clears the m5-view screen, so the tool always resends after reconnecting
 - Fetching and rendering continue regardless of the BLE state
 - Ctrl+C disconnects and exits
@@ -133,6 +134,6 @@ Logs go to standard error.
 | Target | Method |
 | --- | --- |
 | `usage_api` | Unit tests with `pytest` (credential parsing, expiry check, response parsing) |
-| `usage_view` | Unit tests with `pytest` (countdown target selection, time formats, elapsed fraction, bar colors, view switching, dimming) |
-| `claude_usage` | Unit tests with `pytest` (retry interval, wake-up time) |
+| `usage_view` | Unit tests with `pytest` (countdown target selection, time formats, elapsed fraction, bar colors, view switching, dimming, update time) |
+| `claude_usage` | Unit tests with `pytest` (retry interval, wake-up time, next fetch time) |
 | Keychain, API, BLE | Manual tests on real hardware |

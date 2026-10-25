@@ -22,6 +22,8 @@ RECONNECT_INTERVAL_SEC = 30
 # Slack so that a fetch aligned with the per-minute render is not pushed to
 # the next minute by a slight wake-up delay
 FETCH_TOLERANCE_SEC = 1.0
+# Closest a scheduled fetch may follow the one before it
+FETCH_MIN_GAP_SEC = 10.0
 
 logger = logging.getLogger("claude_usage")
 
@@ -33,6 +35,20 @@ def next_backoff(current: int) -> int:
 
 def next_minute(now: float) -> float:
     return (int(now) // 60 + 1) * 60
+
+
+def next_fetch_time(now: float, interval: int) -> float:
+    """Next multiple of the fetch interval in UTC.
+
+    Fetches land on the minute (for a 60 s interval) rather than drifting with
+    when the tool started.
+    """
+    at = (now // interval + 1) * interval
+    # A fetch close to a boundary would otherwise be followed by another one
+    # almost at once, so skip to the one after
+    if at - now < FETCH_MIN_GAP_SEC:
+        at += interval
+    return at
 
 
 def encode_png(state: usage_view.ViewState, now: datetime) -> bytes:
@@ -56,27 +72,31 @@ class UsageFeed:
 
     async def fetch(self) -> None:
         started = time.time()
+        # A fetch let through by the tolerance just short of a boundary is
+        # stamped with the boundary rather than the minute before
+        stamped = max(started, self.next_fetch)
         usage = self.state.usage
+        updated = self.state.updated
         try:
             usage = await asyncio.to_thread(usage_api.fetch_usage, self._agent)
         except usage_api.TokenExpiredError as e:
             self._backoff = 0
-            self.next_fetch = started + self._interval
-            self.state = usage_view.ViewState(usage, stale=True, status=str(e), status_is_error=True)
+            self.next_fetch = next_fetch_time(started, self._interval)
+            self.state = usage_view.ViewState(usage, stale=True, status=str(e), status_is_error=True, updated=updated)
             logger.error("%s", e)
             return
         except usage_api.UsageError as e:
             self._backoff = next_backoff(self._backoff)
             self.next_fetch = started + self._backoff
             status = f"{e} - retry in {self._backoff}s"
-            self.state = usage_view.ViewState(usage, stale=True, status=status, status_is_error=True)
+            self.state = usage_view.ViewState(usage, stale=True, status=status, status_is_error=True, updated=updated)
             logger.error("%s", status)
             return
 
         self._backoff = 0
-        self.next_fetch = started + self._interval
-        stamp = datetime.now().strftime("%H:%M")
-        self.state = usage_view.ViewState(usage, stale=False, status=f"Updated {stamp}")
+        self.next_fetch = next_fetch_time(started, self._interval)
+        stamp = datetime.fromtimestamp(stamped).strftime("%H:%M")
+        self.state = usage_view.ViewState(usage, stale=False, status="", updated=stamp)
         logger.info(
             "usage: session=%s weekly=%s",
             f"{usage.session.utilization:.0f}%" if usage.session else "-",

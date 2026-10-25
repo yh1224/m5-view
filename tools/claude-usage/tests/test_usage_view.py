@@ -106,7 +106,7 @@ def test_render_size():
 
 def test_render_bars_below_limits():
     usage = Usage(window(30, 3600), window(10, 86400))
-    image = usage_view.render(ViewState(usage, False, "Updated 12:00"), NOW)
+    image = usage_view.render(ViewState(usage, False, "", updated="12:00"), NOW)
     assert pixel_at_bar(image) == usage_view.COLOR_OK
     assert ring_pixel(image) != usage_view.COLOR_RING
 
@@ -119,7 +119,7 @@ def test_render_bars_dimmed_when_stale():
 
 def test_render_countdown_at_limit():
     usage = Usage(window(100, 3600), window(10, 86400))
-    image = usage_view.render(ViewState(usage, False, "Updated 12:00"), NOW)
+    image = usage_view.render(ViewState(usage, False, "", updated="12:00"), NOW)
     assert ring_pixel(image) == usage_view.COLOR_RING
 
 
@@ -128,3 +128,15 @@ def test_render_countdown_dimmed_when_stale():
     image = usage_view.render(ViewState(usage, True, "HTTP 500", True), NOW)
     assert ring_pixel(image) == usage_view.COLOR_DIM
 
+
+def updated_area(image):
+    """Pixels of the update time area at the top right."""
+    return image.crop((usage_view.WIDTH - usage_view.BAR_X - 70, 8, usage_view.WIDTH - usage_view.BAR_X, 30)).getcolors()
+
+
+def test_render_updated_time():
+    usage = Usage(window(30, 3600), window(10, 86400))
+    assert updated_area(usage_view.render(ViewState(usage, True, "Loading..."), NOW)) == [
+        (70 * 22, usage_view.COLOR_BG)
+    ]
+    assert len(updated_area(usage_view.render(ViewState(usage, False, "", updated="12:00"), NOW))) > 1

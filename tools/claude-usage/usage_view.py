@@ -91,6 +91,7 @@ class ViewState:
     stale: bool  # The last fetch failed and the values are old
     status: str
     status_is_error: bool = False
+    updated: str | None = None  # Time of the last successful fetch, e.g. "12:34"
 
 
 @dataclass(frozen=True)
@@ -213,7 +214,8 @@ def render(state: ViewState, now: datetime) -> Image.Image:
 
     draw.text((BAR_X, 8), "Claude Usage", font=font(SIZE_MEDIUM, bold=True), fill=COLOR_ACCENT, anchor="la")
     draw.line([(0, HEADER_H - 2), (WIDTH - 1, HEADER_H - 2)], fill=COLOR_TRACK)
-    draw.text((WIDTH - BAR_X, 12), now.strftime("%H:%M"), font=font(SIZE_SMALL), fill=COLOR_DIM, anchor="ra")
+    if state.updated is not None:
+        draw.text((WIDTH - BAR_X, 12), state.updated, font=font(SIZE_SMALL), fill=COLOR_DIM, anchor="ra")
 
     if state.usage is not None:
         target = countdown_target(state.usage)

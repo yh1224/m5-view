@@ -24,7 +24,7 @@ uv sync
 uv run claude_usage.py
 ```
 
-While running, the tool fetches usage every minute, updates the screen and sends it to the device. It reconnects automatically if the connection drops. Press Ctrl+C to quit.
+While running, the tool fetches usage at the start of every minute (every `--interval` seconds, aligned to the clock), updates the screen and sends it to the device. It reconnects automatically if the connection drops. Press Ctrl+C to quit.
 
 On the first run, macOS asks to let the `security` command access `Claude Code-credentials` in the keychain. Choose "Always Allow". If macOS asks to allow the terminal app to use Bluetooth, allow that too.
 
@@ -48,6 +48,7 @@ uv run claude_usage.py --once --save usage.png
 
 - Normally shows the usage of the 5-hour and 7-day windows as bars. The vertical line in each bar marks how much of the window has elapsed
 - The bar color follows the pace, usage over the elapsed share: green below 0.75, yellow up to 1.0, orange below 1.25, red from there or at 100%. The pace is taken against a marker of at least 20%, so a fresh window does not turn red at the first message. When the reset time is unknown, the color follows usage alone (yellow from 50%, orange from 75%, red from 90%)
+- The top right shows the time of the last successful fetch
 - When either window reaches its limit, the screen switches to a countdown to the reset
 - While fetching fails, the last values are shown in gray and the status line shows the error
 
